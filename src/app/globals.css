@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+/* Class-based dark mode: toggled by the header switch (adds `.dark` to <html>). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+/* Smooth colour cross-fade while switching themes (applied briefly by the toggle). */
+.theme-animating *,
+.theme-animating *::before,
+.theme-animating *::after {
+  transition:
+    background-color 0.35s ease,
+    border-color 0.35s ease,
+    color 0.35s ease,
+    fill 0.35s ease,
+    stroke 0.35s ease !important;
+}
+
+@keyframes dash-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.dashboard-fade-in {
+  animation: dash-fade-in 0.45s ease both;
+}
+
+/* Thin, theme-aware scrollbars for the table. */
+.thin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(148 163 184 / 0.5) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-fade-in {
+    animation: none;
+  }
+}
