@@ -1,30 +1,45 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 const STORAGE_KEY = "yt-master-theme";
 
+/**
+ * Subscribes to the <html> class list so every open toggle stays in sync
+ * (the pre-hydration script in layout.tsx applies the class before paint).
+ */
+function subscribe(onChange: () => void) {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["class"],
+  });
+  return () => observer.disconnect();
+}
+
+function getSnapshot(): boolean {
+  return document.documentElement.classList.contains("dark");
+}
+
+function getServerSnapshot(): boolean {
+  return false; // hydration resolves it on the client immediately after
+}
+
 export function ThemeToggle() {
-  const [dark, setDark] = useState(false);
+  const dark = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
-  useEffect(() => {
-    setDark(document.documentElement.classList.contains("dark"));
-  }, []);
-
-  function toggle() {
-    const next = !dark;
+  const toggle = useCallback(() => {
     const root = document.documentElement;
     // Brief colour cross-fade so the switch feels smooth rather than instant.
     root.classList.add("theme-animating");
-    root.classList.toggle("dark", next);
+    root.classList.toggle("dark");
     try {
-      localStorage.setItem(STORAGE_KEY, next ? "dark" : "light");
+      localStorage.setItem(STORAGE_KEY, root.classList.contains("dark") ? "dark" : "light");
     } catch {
       /* storage unavailable — theme still applies for this session */
     }
-    setDark(next);
     window.setTimeout(() => root.classList.remove("theme-animating"), 400);
-  }
+  }, []);
 
   return (
     <button

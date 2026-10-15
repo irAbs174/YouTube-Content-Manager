@@ -10,12 +10,13 @@ import {
   collectionColor,
   type Preset,
 } from "@/lib/constants";
-import { addDays, formatDateLong, formatDayLabel, todayISO, weekStart } from "@/lib/dates";
+import { addDays, formatDateLong, todayISO } from "@/lib/dates";
 import { fmtCompact, pad2, shorten } from "@/lib/format";
-import type { ContentRow, DashboardData, RenderState, SeriesPoint } from "@/lib/types";
+import { bucketSeries } from "@/lib/series";
+import type { ContentRow, DashboardData, RenderState } from "@/lib/types";
 import { AddEpisodeDialog } from "./add-episode-dialog";
 import { VideoPreviewDialog } from "./video-preview-dialog";
-import { CollectionBars, StatusDonut, TopEpisodesBars, TrendChart, type BarDatum, type MixSlice, type TrendPoint } from "./charts";
+import { CollectionBars, StatusDonut, TopEpisodesBars, TrendChart, type BarDatum, type MixSlice } from "./charts";
 import { ContentTable } from "./content-table";
 import { FiltersBar } from "./filters-bar";
 import { KpiCards } from "./kpi-cards";
@@ -24,25 +25,11 @@ import { Panel } from "./ui";
 
 interface DashboardProps {
   initialData: DashboardData;
+  /** True when SSR could not reach the backend — the client must refetch. */
+  ssrFailed?: boolean;
 }
 
-/** Buckets daily points into weekly totals for long ranges (keeps the trend readable). */
-function bucketSeries(series: SeriesPoint[], weekly: boolean): TrendPoint[] {
-  const map = new Map<string, { day: string; views: number; subs: number }>();
-  for (const p of series) {
-    const key = weekly ? weekStart(p.day) : p.day;
-    const bucket = map.get(key) ?? { day: key, views: 0, subs: 0 };
-    bucket.views += p.views;
-    bucket.subs += p.subs;
-    map.set(key, bucket);
-  }
-  return [...map.values()].map((b) => ({
-    ...b,
-    label: weekly ? `Wk ${formatDayLabel(b.day)}` : formatDayLabel(b.day),
-  }));
-}
-
-export function Dashboard({ initialData }: DashboardProps) {
+export function Dashboard({ initialData, ssrFailed = false }: DashboardProps) {
   // ── filter state ──────────────────────────────────────────────────────────
   const [preset, setPreset] = useState<Preset>("90D");
   const [from, setFrom] = useState(initialData.range.from);
@@ -63,13 +50,14 @@ export function Dashboard({ initialData }: DashboardProps) {
   const [notice, setNotice] = useState<{ text: string; at: number } | null>(null);
   const [preview, setPreview] = useState<ContentRow | null>(null);
 
-  const initialKey = useRef(`${initialData.range.from}|${initialData.range.to}|All|All`).current;
+  // `initialData` is the immutable SSR snapshot, so this key is stable by construction.
+  const initialKey = `${initialData.range.from}|${initialData.range.to}|All|All`;
   const fetchKey = `${from}|${to}|${collection}|${status}`;
   const firstRun = useRef(true);
 
   // Fetch whenever a filter changes (or a manual / live refresh is requested).
   useEffect(() => {
-    if (firstRun.current) {
+    if (firstRun.current && !ssrFailed) {
       firstRun.current = false;
       // Server rendered exactly this view — skip the redundant first request.
       if (fetchKey === initialKey && reloadKey === 0) return;
@@ -99,7 +87,7 @@ export function Dashboard({ initialData }: DashboardProps) {
     })();
 
     return () => controller.abort();
-  }, [fetchKey, reloadKey, from, to, collection, status, initialKey]);
+  }, [fetchKey, reloadKey, from, to, collection, status, initialKey, ssrFailed]);
 
   // Live refresh.
   useEffect(() => {

@@ -16,6 +16,7 @@ import {
   YAxis,
 } from "recharts";
 import { fmtCompact, fmtInt } from "@/lib/format";
+import type { TrendPoint } from "@/lib/series";
 import { EmptyState } from "./ui";
 
 // ── shared styling ───────────────────────────────────────────────────────────
@@ -71,12 +72,7 @@ export function ChartTooltip({
 }
 
 // ── line chart: trend ────────────────────────────────────────────────────────
-export interface TrendPoint {
-  label: string;
-  day: string;
-  views: number;
-  subs: number;
-}
+export type { TrendPoint } from "@/lib/series";
 
 export function TrendChart({ points }: { points: TrendPoint[] }) {
   if (points.length === 0) return <EmptyState text="No activity in this range" />;
