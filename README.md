@@ -185,3 +185,26 @@ tip card, optional generated audio) with live progress parsed from `-progress pi
 thumbnail extracted → row marked `done` (or `failed` with the captured error). The
 dashboard polls `/api/renders` every 1.5 s while jobs are in flight.
 >>>>>>> origin/logic
+
+### Library frontend workspace
+
+`/library` provides eight tables: **Main library, Contents, Scenes, Episodes,
+Collections, Languages, Assets, and Subtitle**. The main status dropdown offers
+Public, Schedule, Private, Draft, and Not List. Episode, collection, and language
+selectors reference records in the corresponding tables; create those records
+first. Scene counts in Episodes and Scenes are calculated from the scene rows.
+
+The workspace initializes episodes, main rows, collections, and scenes from the
+existing dashboard/meta APIs. Scene command, tip, and notes are shown as scenario,
+hook, and body respectively; unsupported metadata is left blank rather than
+invented. Contents, Languages, Assets, and Subtitle start empty.
+
+**This is a frontend-only draft editor.** Edits/additions/deletions are saved to
+local storage, scoped by signed-in account, in the current browser. They do not
+update the server, publish videos, upload files, or change YouTube visibility.
+Use **Export draft** to download all eight tables as JSON (including relation IDs).
+**Reload server data** discards all local changes after confirmation and loads a
+fresh API snapshot. Existing server episodes retain their Lab/Emulator/Video
+shortcuts. Use the Lab for server-backed episode editing. Browser storage failures
+are reported; export a copy if saving fails. Exported JSON is a backup/data handoff,
+not an import format supported by this UI yet.
