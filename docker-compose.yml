@@ -1,0 +1,45 @@
+# Full orchestrated stack: Postgres + FastAPI backend + Next.js frontend.
+#   docker compose up --build
+#   → dashboard on http://localhost:3000, API on http://localhost:8000/docs
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ./backend
+    environment:
+      YTCM_DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/app_db
+      YTCM_RENDER_ROOT: /srv/data/renders
+      YTCM_CORS_ORIGINS: '["http://localhost:3000"]'
+    volumes:
+      - renders:/srv/data/renders
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  web:
+    build: .
+    environment:
+      # Server-side proxy target (Next.js rewrites + SSR fetch).
+      API_ORIGIN_INTERNAL: http://api:8000
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
+  renders:

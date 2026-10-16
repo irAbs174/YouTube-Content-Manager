@@ -1,0 +1,28 @@
+[project]
+name = "youtube-content-manager-api"
+version = "0.2.0"
+description = "FastAPI backend for the YouTube Master Content dashboard"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RET"]
+ignore = [
+    "SIM108", # ternary is not always clearer
+    "B008",   # FastAPI DI: Depends() in argument defaults is the framework idiom
+    "E501",   # line too long — handled by formatter, not a CI blocker for now
+    "SIM102", # nested if — keep readable for now
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]

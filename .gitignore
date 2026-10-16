@@ -15,6 +15,8 @@ downloads/
 eggs/
 .eggs/
 lib/
+!/src/lib/
+!/src/lib/**
 lib64/
 parts/
 sdist/
@@ -218,3 +220,14 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project: FastAPI backend runtime state (SQLite db + rendered media)
+backend/data/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+.env*.local
+.vercel
