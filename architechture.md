@@ -63,7 +63,7 @@
     Surfaces: Home (card-only KPIs + visibility + readiness + Lab/Emulator/Library + last 3), Lab (`/lab` + `/lab/[id]` three-column: scene stack | 9:16 stage | YouTube Main meta, autosave), Emulator (`/emulator` picker + `/emulator/[id]` phone bezel + Shorts chrome), Library (`/library` tabs: YouTube Main (spreadsheet columns), Scenes, Meta/Series/Collections).
 
 ## Development Data Flow Diagram
-    browser → Next.js (SSR + rewrites) → FastAPI → SQLAlchemy → Postgres/SQLite
+    browser → Next.js (SSR + runtime API proxy) → FastAPI → SQLAlchemy → Postgres/SQLite
                                       ↘ render queue (FFmpeg concat per scene) → render_root/
                                       ↘ users/sessions → series/collections → youtube_main → episode_scenes
 

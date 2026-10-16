@@ -8,7 +8,7 @@ A unique & minimal YouTube management application: a Next.js analytics dashboard
 FastAPI backend, FFmpeg-orchestrated Short rendering and a fully tested.
 
 ```
-┌ ………………………………………………………………… ┐        /api/*(rewrites)        ┌…………………………………………………………………… ┐
+┌ ………………………………………………………………… ┐        /api/* (runtime proxy)        ┌…………………………………………………………………… ┐
 │  Next.js 16(frontend)     │ ……………………………………………………………………………  │  FastAPI(backend)         │
 │  dashboard . charts .     │      same-origin proxy +       │  routes => services => db │
 │  master content table     │      SSR fetch on first paint  │  render queue(FFmpeg)     │
@@ -29,7 +29,7 @@ YouTube Shorts content-management logic **for now** → goal: YouTube Master Con
 A minimal authenticated studio for Shorts: card-only Home, 3-column Episode Creation Lab with live 9:16 stage, dedicated Shorts-chrome Emulator, and Library mirroring the YouTube Master workbook (9 sheets) — with HTTP-only session auth, per-user scoping, scene-based editing, and multi-scene FFmpeg concat.
 
 ```
-┌──────────────────────────┐        /api/* (rewrites)        ┌──────────────────────────┐
+┌──────────────────────────┐        /api/* (runtime proxy)        ┌──────────────────────────┐
 │  Next.js 16 (frontend)   │ ──────────────────────────────▶ │  FastAPI (backend)       │
 │  Home · Lab · Emulator  │      same-origin proxy +        │  routes → services → db  │
 │  Library · auth gate   │      SSR fetch on first paint   │  render queue (FFmpeg)   │
