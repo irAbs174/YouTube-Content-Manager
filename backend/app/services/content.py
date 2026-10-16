@@ -10,11 +10,9 @@ from sqlalchemy.orm import Session
 
 from app.core.constants import (
     COLLECTION_NAMES,
-    DEFAULT_COLLECTION,
     DEFAULT_SUBTITLES,
     DEFAULT_VISIBILITY,
     MAX_DAYS_IN_FUTURE,
-    STATUSES,
     SUBTITLE_OPTIONS,
     VISIBILITIES,
 )
@@ -138,8 +136,8 @@ def _get_user_or_demo(session: Session, user: User | None) -> User:
     if existing is not None:
         return existing
     # create demo user if none exists (for seeded_session without user)
-    from app.services.auth import hash_password
     from app.core.config import get_settings
+    from app.services.auth import hash_password
 
     settings = get_settings()
     demo_email = getattr(settings, "demo_email", "demo@ytcm.test")
@@ -315,7 +313,7 @@ def _create_scenes(session: Session, episode: YoutubeMain, scenes_payload: list[
         duration = int(sc.get("durationSec") or sc.get("duration_sec") or 45)
         notes = str(sc.get("notes") or "")
         # clamp duration
-        from app.core.constants import DURATION_MIN_SEC, DURATION_MAX_SEC
+        from app.core.constants import DURATION_MAX_SEC, DURATION_MIN_SEC
 
         duration = max(DURATION_MIN_SEC, min(DURATION_MAX_SEC, duration))
         scene = EpisodeScene(

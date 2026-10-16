@@ -14,13 +14,13 @@ from random import Random
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.constants import (
     COLLECTIONS,
     EFFECT_OPTIONS,
     SUBTITLE_OPTIONS,
     VISIBILITIES,
 )
-from app.core.config import Settings, get_settings
 from app.db.models import Collection, ContentDailyStats, Series, User, YoutubeMain
 
 # Back-compat alias used elsewhere.

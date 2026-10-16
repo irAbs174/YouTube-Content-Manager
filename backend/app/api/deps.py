@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import Optional
 
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session
@@ -36,7 +35,7 @@ def get_queue(request: Request) -> RenderQueue:
     return request.app.state.render_queue
 
 
-def get_current_user_optional(request: Request, session: Session = Depends(get_db)) -> Optional[User]:
+def get_current_user_optional(request: Request, session: Session = Depends(get_db)) -> User | None:
     raw = request.cookies.get(SESSION_COOKIE)
     if not raw:
         return None

@@ -48,7 +48,7 @@ def test_dashboard_contract(client: TestClient):
         assert set(point) == SERIES_KEYS
     for row in body["rows"]:
         # legacy keys must still be present; new keys are additive
-        assert ROW_KEYS <= set(row)
+        assert set(row) >= ROW_KEYS
         # also check new workbook keys present
         for k in ("visibility", "seriesName", "episodeNumber", "soundEffects", "music", "subtitlesCount", "thumbnailReady"):
             assert k in row

@@ -24,10 +24,6 @@ from app.core.constants import (
 )
 from app.core.errors import ValidationError
 from app.db.models import ContentDailyStats, User, YoutubeMain
-
-# Back-compat alias
-YoutubeContent = YoutubeMain
-
 from app.schemas.dashboard import (
     DashboardData,
     DashboardRow,
@@ -36,6 +32,9 @@ from app.schemas.dashboard import (
     RangeInfo,
     SeriesPoint,
 )
+
+# Back-compat alias
+YoutubeContent = YoutubeMain
 
 _WATCH_HOURS_DIVISOR = 3600.0
 

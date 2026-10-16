@@ -8,9 +8,6 @@ from pydantic import BaseModel, Field
 
 from app.core.constants import (
     COMMAND_MAX,
-    DEFAULT_COLLECTION,
-    DEFAULT_STATUS,
-    DEFAULT_SUBTITLES,
     DURATION_MAX_SEC,
     DURATION_MIN_SEC,
     TEXT_FIELD_MAX,

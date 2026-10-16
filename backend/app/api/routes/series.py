@@ -37,9 +37,8 @@ def list_series(session: Session = Depends(get_db), current_user: User | None = 
     # episode counts
     result = []
     for s in rows:
-        count = session.scalar(select(Series).where(Series.id == s.id))  # placeholder
-        # actual count via youtube_main
         from sqlalchemy import func
+
         from app.db.models import YoutubeMain
 
         cnt = session.scalar(select(func.count()).select_from(YoutubeMain).where(YoutubeMain.series_id == s.id)) or 0

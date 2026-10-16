@@ -16,8 +16,8 @@ import asyncio
 import contextlib
 import logging
 
-from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy import select
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import Settings
 from app.db.models import EpisodeScene, YoutubeContent

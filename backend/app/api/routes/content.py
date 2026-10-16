@@ -7,7 +7,6 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_optional, get_db, get_queue, get_settings_dep
@@ -15,7 +14,7 @@ from app.core.config import Settings
 from app.core.errors import FFmpegUnavailableError, NotFoundError
 from app.db.models import User
 from app.rendering.queue import RenderQueue
-from app.schemas.content import EpisodeCreate, EpisodeOut, EpisodePatch, MutationOk, EpisodeSceneOut
+from app.schemas.content import EpisodeCreate, EpisodeOut, EpisodePatch, EpisodeSceneOut, MutationOk
 from app.services import content as content_service
 
 router = APIRouter(prefix="/api/content", tags=["content"])
@@ -73,6 +72,7 @@ def _get_user_fallback(session: Session, current_user: User | None) -> User | No
         return current_user
     # fallback for legacy tests without auth: use demo user if exists
     from sqlalchemy import select as _select
+
     from app.db.models import User as _User
 
     return session.scalars(_select(_User).limit(1)).first()
@@ -110,11 +110,7 @@ def update_episode(
     session: Session = Depends(get_db),
     current_user: User | None = Depends(get_current_user_optional),
 ) -> MutationOk:
-    user = _get_user_fallback(session, current_user)
-    # enforce ownership if auth present
-    check_user = current_user  # if no auth, allow fallback via _get_user_fallback logic inside service with None? But we pass user for ownership check
-    # If no auth header, current_user is None, we don't enforce ownership (legacy)
-    content_service.update_episode(session, episode_id, payload, user if current_user is not None else None)
+    content_service.update_episode(session, episode_id, payload, current_user)
     return MutationOk(id=episode_id)
 
 
@@ -124,8 +120,7 @@ def delete_episode(
     session: Session = Depends(get_db),
     current_user: User | None = Depends(get_current_user_optional),
 ) -> MutationOk:
-    user = _get_user_fallback(session, current_user)
-    content_service.delete_episode(session, episode_id, user if current_user is not None else None)
+    content_service.delete_episode(session, episode_id, current_user)
     return MutationOk(id=episode_id)
 
 

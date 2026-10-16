@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Response, Request
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, Request, Response
+from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, get_settings_dep, get_current_user
+from app.api.deps import get_current_user, get_db, get_settings_dep
 from app.core.config import Settings
 from app.core.constants import SESSION_COOKIE
 from app.db.models import User
 from app.schemas.common import CamelModel
-from sqlalchemy.orm import Session
 from app.services import auth as auth_service
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])

@@ -8,7 +8,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_optional, get_db
-from app.core.constants import COMMAND_MAX, DURATION_MAX_SEC, DURATION_MIN_SEC, TEXT_FIELD_MAX, TIP_MAX
+from app.core.constants import (
+    COMMAND_MAX,
+    DURATION_MAX_SEC,
+    DURATION_MIN_SEC,
+    TEXT_FIELD_MAX,
+    TIP_MAX,
+)
 from app.core.errors import NotFoundError, ValidationError
 from app.db.models import EpisodeScene, User, YoutubeMain
 from app.schemas.common import CamelModel
@@ -144,7 +150,6 @@ def delete_scene(content_id: int, scene_id: int, session: Session = Depends(get_
     scene = session.get(EpisodeScene, scene_id)
     if scene is None or scene.content_id != episode.id:
         raise NotFoundError("Scene not found")
-    pos = scene.position
     session.delete(scene)
     session.flush()
     # repack positions
