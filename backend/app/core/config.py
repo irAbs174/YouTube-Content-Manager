@@ -38,6 +38,14 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3000",
     )
 
+    # Signed session cookies (override in production).
+    session_secret: str = "dev-insecure-change-me"
+    session_ttl_days: int = 14
+
+    # Used only when seed_on_startup is true (tests / empty local DB).
+    demo_email: str = "demo@ytcm.test"
+    demo_password: str = "demo-password-1"
+
     # Interval between render-queue worker polls (seconds).
     render_poll_interval: float = 0.05
 

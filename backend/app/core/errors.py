@@ -24,6 +24,16 @@ class ValidationError(DomainError):
     default_message = "Invalid input"
 
 
+class UnauthorizedError(DomainError):
+    status_code = 401
+    default_message = "Not authenticated"
+
+
+class ConflictError(DomainError):
+    status_code = 409
+    default_message = "Conflict"
+
+
 class FFmpegUnavailableError(DomainError):
     status_code = 503
     default_message = "FFmpeg is not available on this machine"

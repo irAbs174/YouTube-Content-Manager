@@ -10,26 +10,20 @@ from typing import Final
 
 APP_NAME: Final[str] = "YouTube Content Manager API"
 
-# ── Episode statuses ─────────────────────────────────────────────────────────
-STATUSES: Final[tuple[str, ...]] = (
-    "Draft",
-    "Scripting",
-    "Recording",
-    "Editing",
-    "Scheduled",
-    "Published",
-)
+# ── YouTube visibility (Main sheet Status) ───────────────────────────────────
+VISIBILITIES: Final[tuple[str, ...]] = ("Private", "Public")
+STATUSES: Final[tuple[str, ...]] = VISIBILITIES  # alias used by /api/meta
 
 STATUS_COLORS: Final[dict[str, str]] = {
-    "Draft": "#94a3b8",
-    "Scripting": "#f59e0b",
-    "Recording": "#06b6d4",
-    "Editing": "#a855f7",
-    "Scheduled": "#3b82f6",
-    "Published": "#10b981",
+    "Private": "#94a3b8",
+    "Public": "#10b981",
 }
 
-DEFAULT_STATUS: Final[str] = "Draft"
+DEFAULT_STATUS: Final[str] = "Private"
+DEFAULT_VISIBILITY: Final[str] = "Private"
+
+SESSION_COOKIE: Final[str] = "ytcm_session"
+PASSWORD_MIN: Final[int] = 8
 
 # ── Collections ("segments" on the dashboard) ────────────────────────────────
 COLLECTIONS: Final[tuple[dict[str, object], ...]] = (
