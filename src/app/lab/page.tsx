@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { StudioNav } from "@/components/studio-nav";
 import { useRouter } from "next/navigation";
 import type { EpisodeScene } from "@/lib/types";
+import { VISIBILITIES, type Visibility } from "@/lib/constants";
 
 interface SeriesInfo { id: number; name: string; episodeCount: number; }
 interface CollectionInfo { name: string; color: string; sounds: string[]; }
@@ -16,7 +17,7 @@ export default function LabNewPage() {
   const [seriesName, setSeriesName] = useState("");
   const [episodeNumber, setEpisodeNumber] = useState<number | "">("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [visibility, setVisibility] = useState<"Private" | "Public">("Private");
+  const [visibility, setVisibility] = useState<Visibility>("Private");
   const [collection, setCollection] = useState("");
   const [soundEffects, setSoundEffects] = useState(false);
   const [music, setMusic] = useState(false);
@@ -188,9 +189,10 @@ export default function LabNewPage() {
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Episode title" className="w-full rounded border px-2 py-1.5 text-sm dark:bg-slate-800" />
             <div className="grid grid-cols-2 gap-2">
               <label className="flex flex-col text-xs font-medium">Visibility
-                <select value={visibility} onChange={(e) => setVisibility(e.target.value as any)} className="rounded border px-2 py-1.5 text-sm dark:bg-slate-800">
-                  <option value="Private">Private</option>
-                  <option value="Public">Public</option>
+                <select value={visibility} onChange={(e) => setVisibility(e.target.value as Visibility)} className="rounded border px-2 py-1.5 text-sm dark:bg-slate-800">
+                  {VISIBILITIES.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
                 </select>
               </label>
               <label className="flex flex-col text-xs font-medium">Collection

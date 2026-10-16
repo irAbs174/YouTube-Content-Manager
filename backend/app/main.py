@@ -15,7 +15,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import sessionmaker
 
-from app.api.routes import auth, content, dashboard, health, meta, renders, scenes, series
+from app.api.routes import (
+    auth,
+    content,
+    dashboard,
+    health,
+    library,
+    meta,
+    renders,
+    scenes,
+    series,
+)
 from app.core.config import Settings
 from app.core.constants import APP_NAME
 from app.core.errors import DomainError
@@ -89,7 +99,17 @@ def create_app(
             message = f"Invalid value for `{loc}`: {first.get('msg', 'invalid')}"
         return JSONResponse({"error": message}, status_code=400)
 
-    for route_module in (health, meta, auth, dashboard, content, renders, series, scenes):
+    for route_module in (
+        health,
+        meta,
+        auth,
+        dashboard,
+        content,
+        renders,
+        series,
+        scenes,
+        library,
+    ):
         app.include_router(route_module.router)
 
     return app

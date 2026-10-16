@@ -1,4 +1,6 @@
-export const VISIBILITIES = ["Private", "Public"] as const;
+// The Main sheet's Status column is a select list — Public · Schedule ·
+// Private · Draft · Not List (mirrors `app/core/constants.py`).
+export const VISIBILITIES = ["Public", "Schedule", "Private", "Draft", "Not List"] as const;
 export type Visibility = (typeof VISIBILITIES)[number];
 
 // keep legacy STATUSES alias for meta compat; backend also aliases
@@ -6,8 +8,11 @@ export const STATUSES = VISIBILITIES as unknown as readonly string[];
 export type Status = Visibility;
 
 export const STATUS_COLORS: Record<string, string> = {
-  Private: "#94a3b8",
   Public: "#10b981",
+  Schedule: "#f59e0b",
+  Private: "#94a3b8",
+  Draft: "#a78bfa",
+  "Not List": "#64748b",
 };
 
 // alias for plan compatibility
@@ -39,6 +44,22 @@ export const EFFECT_OPTIONS = [
 
 export const SUBTITLE_OPTIONS = ["None", "EN", "EN + ES", "EN + FR", "Auto captions"] as const;
 export const LIVE_INTERVAL_MS = 15_000;
+
+// ── Library places ──────────────────────────────────────────────────────────
+// Assets sheet — `Type` is a select list.
+export const ASSET_TYPES = [
+  "Emojie",
+  "Fonts",
+  "img",
+  "Video",
+  "Audio",
+  "SFX",
+  "Template",
+  "Logo",
+] as const;
+
+// Collections sheet — `type` is a select list.
+export const COLLECTION_TYPES = ["course", "Play List", "Series", "Single"] as const;
 
 export type Preset = "7D" | "30D" | "90D" | "180D" | "Custom";
 

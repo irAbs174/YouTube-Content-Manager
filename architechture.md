@@ -14,7 +14,7 @@
        1. Episode — `series_id` FK + `episode_number` (unique per series per user), display `"{series.name} #{n}"`
        2. Date — nullable `date` (Excel serial)
        3. Title — via `Contents 🖊️` Senario Lookup (XLOOKUP)
-       4. Status → `visibility` (`Private` | `Public` only; legacy `Draft…Published` retired)
+       4. Status → `visibility` (select list: `Public` | `Schedule` | `Private` | `Draft` | `Not List`)
        5. Collection — `collection_id` FK → `collections` (plus legacy `collection` string for compat)
        6. Sound Effects — `sound_effects` bool
        7. Music — `music` bool (split from legacy `sound_music` string)
@@ -27,6 +27,12 @@
       14. Auth — `users` (`email`, `password_hash` bcrypt) + `sessions` (token_hash sha256, expires_at)
       15. Render pipeline (render_status, render_progress, render_error, video_path)
       16. On-screen script (command, tip, audio) — transitional JSON, replaced by scenes
+    17. Library spec places — `content_items` (Contents 🖊️), `subtitles` (Subtitles 🔍),
+        `languages` (Languages 🌍), `assets` (Assets 👁️👁️), plus the Collections 📃
+        metadata (`code` · `title` · `description` · `type` · `share_link`), the
+        Scenes 🎬 script fields (`title` · `hook` · `scenario` · `body`) and the
+        Episodes ⏭️ `shared_link`.  `GET /api/library/places` publishes the column
+        spec; the frontend renders every place from it.
 
     Companion table `content_daily_stats` (views, impressions, watch_seconds,
     likes, subs_gained per day) powers every chart and KPI — per-user scoped in analytics.
@@ -60,12 +66,13 @@
 
     Auth: open register/login — email+password, `ytcm_session` httpOnly SameSite=Lax, 14d TTL. SSR fetches forward `Cookie`; client uses `credentials: include`. `/api/health` + `/api/meta` stay public; dashboard/content/renders/series/scenes are per-user (fallback to demo user for legacy unauth tests).
 
-    Surfaces: Home (card-only KPIs + visibility + readiness + Lab/Emulator/Library + last 3), Lab (`/lab` + `/lab/[id]` three-column: scene stack | 9:16 stage | YouTube Main meta, autosave), Emulator (`/emulator` picker + `/emulator/[id]` phone bezel + Shorts chrome), Library (`/library` tabs: YouTube Main (spreadsheet columns), Scenes, Meta/Series/Collections).
+    Surfaces: Home (card-only KPIs + visibility + readiness + Lab/Emulator/Library + last 3), Lab (`/lab` + `/lab/[id]` three-column: scene stack | 9:16 stage | YouTube Main meta, autosave), Emulator (`/emulator` picker + `/emulator/[id]` phone bezel + Shorts chrome), Library (`/library` tabs = the workbook's spec places: Main Library, Contents, Scenes, Episodes, Collections, Languages, Assets, Subtitle — each with the sheet's exact columns, live select lists and in-place editing).
 
 ## Development Data Flow Diagram
     browser → Next.js (SSR + rewrites) → FastAPI → SQLAlchemy → Postgres/SQLite
                                       ↘ render queue (FFmpeg concat per scene) → render_root/
                                       ↘ users/sessions → series/collections → youtube_main → episode_scenes
+                                      ↘ library places → content_items · subtitles · languages · assets
 
 ## Deployment
     docker compose up --build  (db + api + web) · see README.md for local dev
