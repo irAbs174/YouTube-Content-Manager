@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { StudioNav } from "@/components/studio-nav";
 import type { EpisodeScene, ContentRow } from "@/lib/types";
+import { VISIBILITIES, type Visibility } from "@/lib/constants";
 
 export default function LabEditPage() {
   const params = useParams<{ id: string }>();
@@ -14,7 +15,7 @@ export default function LabEditPage() {
   const [scenes, setScenes] = useState<EpisodeScene[]>([]);
   const [selected, setSelected] = useState(0);
   const [title, setTitle] = useState("");
-  const [visibility, setVisibility] = useState<"Private" | "Public">("Private");
+  const [visibility, setVisibility] = useState<Visibility>("Private");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,7 +110,7 @@ export default function LabEditPage() {
           <div className="space-y-3">
             <label className="block text-xs font-medium">Title<input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1 w-full rounded border px-2 py-1 text-sm" /></label>
             <label className="block text-xs font-medium">Visibility
-              <select value={visibility} onChange={(e) => setVisibility(e.target.value as any)} className="mt-1 w-full rounded border px-2 py-1 text-sm"><option value="Private">Private</option><option value="Public">Public</option></select>
+              <select value={visibility} onChange={(e) => setVisibility(e.target.value as Visibility)} className="mt-1 w-full rounded border px-2 py-1 text-sm">{VISIBILITIES.map((s) => (<option key={s} value={s}>{s}</option>))}</select>
             </label>
           </div>
         </div>

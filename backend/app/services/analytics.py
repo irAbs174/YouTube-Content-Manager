@@ -39,11 +39,10 @@ YoutubeContent = YoutubeMain
 _WATCH_HOURS_DIVISOR = 3600.0
 
 LEGACY_TO_VISIBILITY = {
-    "Draft": "Private",
-    "Scripting": "Private",
-    "Recording": "Private",
-    "Editing": "Private",
-    "Scheduled": "Private",
+    "Scripting": "Draft",
+    "Recording": "Draft",
+    "Editing": "Draft",
+    "Scheduled": "Schedule",
     "Published": "Public",
 }
 

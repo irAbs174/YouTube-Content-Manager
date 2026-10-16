@@ -88,9 +88,104 @@ def test_mutation_contract(client: TestClient):
 def test_dashboard_meta_endpoint_lists_domain_values(client: TestClient):
     """The constants endpoint keeps frontend dropdowns in sync."""
     meta = client.get("/api/meta").json()
-    assert meta["statuses"][0] == "Private"
+    # The Main sheet's Status column is a select list — order is the spec order.
+    assert meta["statuses"] == ["Public", "Schedule", "Private", "Draft", "Not List"]
     assert meta["collections"][0]["name"]
     assert all("color" in c and "sounds" in c for c in meta["collections"])
+
+
+LIBRARY_PLACES = [
+    "main",
+    "contents",
+    "scenes",
+    "episodes",
+    "collections",
+    "languages",
+    "assets",
+    "subtitles",
+]
+
+
+def test_library_places_contract(client: TestClient):
+    """Every spec place declares its columns and answers with rows."""
+    body = client.get("/api/library/places").json()
+    assert set(body) == {"places", "options"}
+    keys = [place["key"] for place in body["places"]]
+    assert keys == LIBRARY_PLACES
+    for place in body["places"]:
+        assert place["title"]
+        assert place["columns"]
+        for column in place["columns"]:
+            assert set(column) >= {"key", "label", "type", "editable"}
+    options = body["options"]
+    assert options["statuses"] == ["Public", "Schedule", "Private", "Draft", "Not List"]
+    assert options["episodes"] and "label" in options["episodes"][0]
+    assert options["collections"] and "label" in options["collections"][0]
+    assert options["languages"] and "label" in options["languages"][0]
+    assert "Emojie" in options["assetTypes"] and "Fonts" in options["assetTypes"]
+
+    for key in LIBRARY_PLACES:
+        rows = client.get(f"/api/library/{key}").json()
+        assert isinstance(rows, list)
+        assert rows, f"place {key} returned no rows"
+
+
+def test_library_place_columns_match_the_spec(client: TestClient):
+    """The rendered columns are exactly the ones the spec asks for."""
+    body = client.get("/api/library/places").json()
+    columns = {place["key"]: [c["label"] for c in place["columns"]] for place in body["places"]}
+    assert columns["main"] == [
+        "Episode",
+        "Date",
+        "Title",
+        "Status",
+        "Collection",
+        "Sound Effects",
+        "Music",
+        "Subtitles",
+        "Tumbnaill",
+    ]
+    assert columns["contents"] == [
+        "ID",
+        "Episode",
+        "Language",
+        "Title",
+        "Description",
+        "Tags",
+        "Subtitles",
+        "Related Video",
+        "Pinned Comment",
+        "Music",
+        "Tumbnaill",
+    ]
+    assert columns["scenes"] == [
+        "ID",
+        "Episode",
+        "SCN Count",
+        "SCN Number",
+        "Scense Title",
+        "SCN Hook",
+        "SCN Senario",
+        "SCN Body",
+    ]
+    assert columns["episodes"] == [
+        "Episode number",
+        "Collection",
+        "Episode",
+        "Shared Link",
+        "SCN Count",
+    ]
+    assert columns["collections"] == ["ID", "name", "Title", "Description", "type", "Share Link"]
+    assert columns["languages"] == ["ID", "Name"]
+    assert columns["assets"] == [
+        "Assets ID",
+        "Type",
+        "Name",
+        "Context",
+        "Description",
+        "Storage Location",
+    ]
+    assert columns["subtitles"] == ["Episode", "Language", "Time duration", "Text"]
 
 
 def _today() -> str:

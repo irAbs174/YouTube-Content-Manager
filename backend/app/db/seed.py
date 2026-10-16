@@ -21,7 +21,18 @@ from app.core.constants import (
     SUBTITLE_OPTIONS,
     VISIBILITIES,
 )
-from app.db.models import Collection, ContentDailyStats, Series, User, YoutubeMain
+from app.db.models import (
+    Asset,
+    Collection,
+    ContentDailyStats,
+    ContentItem,
+    EpisodeScene,
+    Language,
+    Series,
+    SubtitleRow,
+    User,
+    YoutubeMain,
+)
 
 # Back-compat alias used elsewhere.
 YoutubeContent = YoutubeMain
@@ -80,6 +91,36 @@ _FLAVORS = (
     "the short version",
 )
 
+# Assets 👁️👁️ — (code, type, name, context, description, storage location).
+# The emoji block mirrors the workbook's Assets sheet; fonts and images round
+# out the `Type` select list.
+_ASSETS: tuple[tuple[str, str, str, str, str, str], ...] = (
+    ("AST1", "Emojie", "•", "•", "•", "assets/emoji/dot.png"),
+    ("AST2", "Emojie", "💻", "💻", "💻", "assets/emoji/laptop.png"),
+    ("AST3", "Emojie", "📌", "📌", "📌", "assets/emoji/pin.png"),
+    ("AST4", "Emojie", "👇", "👇", "👇", "assets/emoji/point.png"),
+    ("AST5", "Emojie", "👁️", "👁️", "👁️", "assets/emoji/eyes.png"),
+    ("AST6", "Emojie", "♥️", "♥️", "♥️", "assets/emoji/heart.png"),
+    ("AST7", "Emojie", "🎬", "🎬", "🎬", "assets/emoji/clapper.png"),
+    ("AST8", "Emojie", "🔔", "🔔", "🔔", "assets/emoji/bell.png"),
+    ("AST9", "Emojie", "🔍", "🔍", "🔍", "assets/emoji/magnifier.png"),
+    ("AST10", "Emojie", "⚠️", "⚠️", "⚠️", "assets/emoji/warning.png"),
+    ("AST11", "Emojie", "🗨️", "🗨️", "🗨️", "assets/emoji/box.png"),
+    ("AST12", "Emojie", "⏭️", "⏭️", "⏭️", "assets/emoji/next.png"),
+    ("AST13", "Emojie", "⏮️", "⏮️", "⏮️", "assets/emoji/previous.png"),
+    ("AST14", "Emojie", "📐", "📐", "📐", "assets/emoji/ruler.png"),
+    ("AST15", "Emojie", "🔗", "🔗", "🔗", "assets/emoji/link.png"),
+    ("AST16", "Emojie", "🖊️", "🖊️", "🖊️", "assets/emoji/pen.png"),
+    ("AST17", "Emojie", "📃", "📃", "📃", "assets/emoji/curved.png"),
+    ("AST18", "Emojie", "🌍", "🌍", "🌍", "assets/emoji/globe.png"),
+    ("AST19", "Emojie", "🎉", "🎉", "🎉", "assets/emoji/party.png"),
+    ("AST20", "Fonts", "JetBrainsMono-Bold", "Command", "Monospaced face for on-screen commands", "fonts/JetBrainsMono-Bold.ttf"),
+    ("AST21", "Fonts", "Inter-SemiBold", "Title", "Title face used by the Shorts stage", "fonts/Inter-SemiBold.ttf"),
+    ("AST22", "Fonts", "FiraCode-Regular", "Tip", "Face for the tip card", "fonts/FiraCode-Regular.ttf"),
+    ("AST23", "img", "logo-strip.png", "Brand", "YouTube logo strip placed on the hook", "img/logo-strip.png"),
+    ("AST24", "img", "terminal-bg.png", "Background", "Background plate for the command card", "img/terminal-bg.png"),
+)
+
 
 def needs_seed(session: Session) -> bool:
     """True when the content table is empty."""
@@ -94,14 +135,32 @@ def _ensure_collections(session: Session) -> dict[str, Collection]:
         name = str(coll["name"])  # type: ignore[arg-type]
         color = str(coll["color"])  # type: ignore[arg-type]
         if name not in existing:
-            row = Collection(name=name, color=color)
+            row = Collection(
+                name=name,
+                color=color,
+                code=str(coll.get("id", "")),
+                title=str(coll.get("title", "")),
+                description=str(coll.get("description", "")),
+                type=str(coll.get("type", "")),
+                share_link=str(coll.get("shareLink", "")),
+            )
             session.add(row)
             session.flush()
             existing[name] = row
         else:
-            # keep color in sync in case constants changed
+            # keep color + Collections-sheet metadata in sync with the constants
             if existing[name].color != color:
                 existing[name].color = color
+            for column, key in (
+                ("code", "id"),
+                ("title", "title"),
+                ("description", "description"),
+                ("type", "type"),
+                ("share_link", "shareLink"),
+            ):
+                value = str(coll.get(key, ""))
+                if value and getattr(existing[name], column) != value:
+                    setattr(existing[name], column, value)
     session.flush()
     return existing
 
@@ -151,6 +210,9 @@ def seed(session: Session, *, today: date | None = None) -> int:
     collections_by_name = _ensure_collections(session)
     demo_user = _ensure_demo_user(session)
     seed_series = _ensure_seed_series(session, demo_user)
+    languages = _ensure_languages(session)
+    _ensure_assets(session)
+    seeded_episodes: list[YoutubeMain] = []
 
     for index in range(_EPISODES):
         collection = COLLECTIONS[index % len(COLLECTIONS)]
@@ -194,6 +256,7 @@ def seed(session: Session, *, today: date | None = None) -> int:
             music=music,
             subtitles_count=subtitles_count,
             thumbnail_ready=thumbnail_ready,
+            shared_link=f"https://youtube.com/shorts/{_slug(f'{topic}-{episode_no}')}",
             # legacy columns kept so old API/tests still see values
             sound_music=sound_choice,
             effects=effects,
@@ -207,10 +270,178 @@ def seed(session: Session, *, today: date | None = None) -> int:
         session.flush()  # need row.id for the stats rows
 
         _seed_stats_for_episode(rng, session, row, published_day, today)
+        seeded_episodes.append(row)
         created += 1
 
+    _seed_library_places(session, demo_user, seeded_episodes, languages)
     session.commit()
     return created
+
+
+def _slug(value: str) -> str:
+    """Deterministic YouTube-style id fragment (a-z0-9 and dashes)."""
+    out: list[str] = []
+    for char in value.lower():
+        if char.isalnum():
+            out.append(char)
+        elif out and out[-1] != "-":
+            out.append("-")
+    return "".join(out).strip("-") or "short"
+
+
+def _ensure_languages(session: Session) -> dict[str, Language]:
+    """Make sure the Languages 🌍 sheet exists (ID · Name)."""
+    from app.core.constants import LANGUAGES
+
+    existing = {row.name: row for row in session.scalars(select(Language)).all()}
+    for name in LANGUAGES:
+        if name not in existing:
+            row = Language(name=name)
+            session.add(row)
+            session.flush()
+            existing[name] = row
+    session.flush()
+    return existing
+
+
+def _ensure_assets(session: Session) -> dict[str, Asset]:
+    """Make sure the Assets 👁️👁️ sheet exists (Assets ID · Type · …)."""
+    existing = {row.code: row for row in session.scalars(select(Asset)).all()}
+    for code, kind, name, context, description, storage in _ASSETS:
+        row = existing.get(code)
+        if row is None:
+            session.add(
+                Asset(
+                    code=code,
+                    type=kind,
+                    name=name,
+                    context=context,
+                    description=description,
+                    storage_location=storage,
+                )
+            )
+            session.flush()
+        else:
+            row.type = kind
+            row.name = name
+            row.context = context
+            row.description = description
+            row.storage_location = storage
+    session.flush()
+    return existing
+
+
+def _seed_library_places(
+    session: Session,
+    user: User,
+    episodes: list[YoutubeMain],
+    languages: dict[str, Language],
+) -> None:
+    """Populate the Library places that hang off an episode.
+
+    Scenes 🎬 · Contents 🖊️ · Subtitles 🔍 — every episode gets a scene
+    breakdown, its content blocks and (when the episode declares subtitles)
+    a couple of timed cues.
+    """
+    english = languages.get("English")
+    for index, episode in enumerate(episodes):
+        topic = episode.title.split(" · ")[0]
+        collection = episode.collection or "General"
+        scene_count = 2 + (index % 2)  # 2 or 3 scenes, deterministic
+        share = max(5, episode.duration_sec // scene_count)
+        plan = [
+            (
+                "Hook",
+                f"{topic} — {episode.title.split(' · ')[-1]}.",
+                "Hook On Top, YouTube Logo & Title",
+                f"Why {topic} matters and what you will be able to do after this Short.",
+            ),
+            (
+                "Command",
+                f"Run the {topic} command and read the output.",
+                "Terminal card, command highlighted, tip below",
+                "The exact command and the one flag that changes the result.",
+            ),
+            (
+                "Takeaway",
+                "One line to remember.",
+                "Outro card with the collection logo",
+                f"Recap of {topic} plus a pointer to the next episode of {collection}.",
+            ),
+        ][:scene_count]
+        for position, (title, hook, scenario, body) in enumerate(plan):
+            scene = EpisodeScene(
+                content_id=episode.id,
+                position=position,
+                duration_sec=share,
+                command=topic,
+                tip=f"{title}: {hook}",
+                audio=bool(episode.music or episode.sound_effects),
+                notes=body,
+                title=title,
+                hook=hook,
+                scenario=scenario,
+                body=body,
+            )
+            session.add(scene)
+            session.flush()
+
+        # Contents 🖊️ — the episode header block + one block per scene.
+        blocks = [
+            (
+                f"{collection} | {episode.title}",
+                f"{collection} collection entry for episode #{episode.episode_number}.",
+                ",".join(word for word in topic.split()[:3]),
+                True,
+                True,
+            )
+        ]
+        blocks.extend(
+            (
+                f"{title}: {hook}",
+                body,
+                ",".join(word for word in title.lower().split()[:3]),
+                bool(episode.music),
+                bool(episode.thumbnail_ready),
+            )
+            for title, hook, scenario, body in plan
+        )
+        for position, (title, description, tags, has_music, has_thumb) in enumerate(blocks):
+            session.add(
+                ContentItem(
+                    user_id=user.id,
+                    episode_id=episode.id,
+                    language_id=english.id if english else None,
+                    related_video_id=None,
+                    code=f"CNT{position + 1}",
+                    position=position,
+                    title=title,
+                    description=description,
+                    tags=tags,
+                    subtitles=episode.subtitles_count > 0,
+                    pinned_comment=f"💬 Which flag do you use for {topic}?",
+                    music=has_music,
+                    thumbnail=has_thumb,
+                )
+            )
+
+        # Subtitles 🔍 — two cues for episodes that declare subtitles.
+        if episode.subtitles_count > 0:
+            cues = [
+                (0, share, f"{topic}"),
+                (share, share * 2, "the one flag that changes everything"),
+            ]
+            for start, end, text in cues:
+                session.add(
+                    SubtitleRow(
+                        user_id=user.id,
+                        episode_id=episode.id,
+                        language_id=english.id if english else None,
+                        start_sec=start,
+                        end_sec=end,
+                        text=text,
+                    )
+                )
 
 
 def _seed_stats_for_episode(

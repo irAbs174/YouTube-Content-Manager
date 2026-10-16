@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { StudioNav } from "@/components/studio-nav";
 import { KpiCards } from "@/components/dashboard/kpi-cards";
 import type { DashboardData } from "@/lib/types";
+import { STATUS_COLORS, VISIBILITIES } from "@/lib/constants";
 import Link from "next/link";
 
 export default function HomePage() {
@@ -48,6 +49,10 @@ export default function HomePage() {
 
   const publicCount = data.rows.filter((r) => r.visibility === "Public" || r.status === "Public").length;
   const privateCount = data.rows.filter((r) => r.visibility === "Private" || r.status === "Private").length;
+  const statusCounts = VISIBILITIES.map((status) => ({
+    status,
+    count: data.rows.filter((r) => r.visibility === status || r.status === status).length,
+  }));
   const thumbReady = data.rows.filter((r) => r.thumbnailReady).length;
   const soundReady = data.rows.filter((r) => r.soundEffects).length;
   const musicReady = data.rows.filter((r) => r.music).length;
@@ -66,15 +71,18 @@ export default function HomePage() {
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="rounded-2xl border bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
             <div className="text-xs font-medium text-slate-500">Visibility</div>
-            <div className="mt-2 flex gap-4">
-              <div>
-                <div className="text-2xl font-semibold text-emerald-600">{publicCount}</div>
-                <div className="text-xs text-slate-500">Public</div>
-              </div>
-              <div>
-                <div className="text-2xl font-semibold text-slate-400">{privateCount}</div>
-                <div className="text-xs text-slate-500">Private</div>
-              </div>
+            <div className="mt-2 flex flex-wrap gap-4">
+              {statusCounts.map(({ status, count }) => (
+                <div key={status}>
+                  <div
+                    className="text-2xl font-semibold"
+                    style={{ color: STATUS_COLORS[status] }}
+                  >
+                    {count}
+                  </div>
+                  <div className="text-xs text-slate-500">{status}</div>
+                </div>
+              ))}
             </div>
           </div>
           <div className="rounded-2xl border bg-white p-4 dark:border-slate-800 dark:bg-slate-900">

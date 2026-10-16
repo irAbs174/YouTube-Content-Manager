@@ -1,3 +1,5 @@
+import type { Visibility } from "./constants";
+
 export type KpiKey = "views" | "watchHours" | "subs" | "ctr" | "likes";
 
 export interface KpiPair {
@@ -53,7 +55,7 @@ export interface ContentRow {
   likes: number;
   subs: number;
   // workbook-normalized new fields
-  visibility: "Private" | "Public";
+  visibility: Visibility;
   seriesId: number;
   seriesName: string;
   episodeNumber: number;

@@ -38,6 +38,12 @@ def _validate_enum(value: str, allowed: tuple[str, ...], label: str) -> str:
 
 
 def _map_status_to_visibility(raw: str | None) -> str:
+    """Normalise a status/visibility value onto the workbook's select list.
+
+    The Main sheet's Status column is a select list (Public · Schedule ·
+    Private · Draft · Not List).  Legacy pipeline states from the first
+    release are folded onto it.
+    """
     if raw is None:
         return DEFAULT_VISIBILITY
     raw = raw.strip()
@@ -48,11 +54,10 @@ def _map_status_to_visibility(raw: str | None) -> str:
     # legacy mapping
     if raw == "Published":
         return "Public"
-    if raw in ("Draft", "Scripting", "Recording", "Editing", "Scheduled", "Private"):
-        # Draft etc map to Private for backward compat; Private maps to Private
-        if raw == "Private":
-            return "Private"
-        return "Private"
+    if raw == "Scheduled":
+        return "Schedule"
+    if raw in ("Scripting", "Recording", "Editing"):
+        return "Draft"
     raise ValidationError(f"Unknown status/visibility: {raw}")
 
 
