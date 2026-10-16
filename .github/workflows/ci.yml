@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, logic]
   pull_request:
 
 jobs:
@@ -41,7 +41,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Lint (eslint)
         run: npm run lint
@@ -51,3 +51,6 @@ jobs:
 
       - name: Test (vitest)
         run: npm run test
+
+      - name: Build (Next.js)
+        run: npm run build

@@ -2,22 +2,24 @@
 
 YouTube Shorts content-management logic **for now** → goal: YouTube Master Content Management.
 
-A unique & minimal YouTube management application: a Next.js analytics dashboard over a
-FastAPI backend, with FFmpeg-orchestrated Short rendering and a fully tested, layered codebase.
+A minimal authenticated studio for Shorts: card-only Home, 3-column Episode Creation Lab with live 9:16 stage, dedicated Shorts-chrome Emulator, and Library mirroring the YouTube Master workbook (9 sheets) — with HTTP-only session auth, per-user scoping, scene-based editing, and multi-scene FFmpeg concat.
 
 ```
 ┌──────────────────────────┐        /api/* (rewrites)        ┌──────────────────────────┐
 │  Next.js 16 (frontend)   │ ──────────────────────────────▶ │  FastAPI (backend)       │
-│  dashboard · charts ·    │      same-origin proxy +        │  routes → services → db  │
-│  master content table    │      SSR fetch on first paint   │  render queue (FFmpeg)   │
+│  Home · Lab · Emulator  │      same-origin proxy +        │  routes → services → db  │
+│  Library · auth gate   │      SSR fetch on first paint   │  render queue (FFmpeg)   │
 └──────────────────────────┘                                 └───────────┬──────────────┘
                                                                          │ SQLAlchemy
                                                               ┌──────────▼──────────────┐
                                                               │ PostgreSQL / SQLite     │
-                                                              │ youtube_content         │
+                                                              │ users · sessions · series│
+                                                              │ youtube_main · episode_scenes │
                                                               │ content_daily_stats     │
                                                               └─────────────────────────┘
 ```
+
+Workbook source of truth: `youTube-master-content-managment-v001.xlsx` (+ preview png) at repo root — 9 sheets (YouTube Main 📌, Contents 🖊️, Episodes ⏭️, Scenses 🎬, Languages 🌍, Assets, Subtitles 🔍, Collections 📃, Body Content). `youtube_main` is normalized from `Episode/Data/Title/Status/Collection/Sound Effects/Music/Subtitles/Tumbnaill` with `series` + `collections` lookups, `episode_scenes` for Lab/Emulator, and `users/sessions` for auth.
 
 ## Quick start (local, zero config)
 
@@ -59,14 +61,23 @@ docker compose up --build
 | Method & path                      | Purpose                                          |
 | ---------------------------------- | ------------------------------------------------ |
 | `GET  /api/health`                 | liveness + DB check                              |
-| `GET  /api/meta`                   | statuses / collections / options (single source) |
-| `GET  /api/dashboard`              | KPIs, daily series, filtered episode rows        |
-| `POST /api/content`                | create episode (optionally queue a render)       |
-| `PATCH/DELETE /api/content/:id`    | update status/title · delete + cascade stats     |
-| `POST /api/content/:id/render`     | (re)queue an FFmpeg render                       |
+| `GET  /api/meta`                   | visibilities / collections / options (single source) |
+| `POST /api/auth/register`          | create account + set `ytcm_session` httpOnly cookie |
+| `POST /api/auth/login`             | login + set cookie                               |
+| `POST /api/auth/logout`            | clear session                                    |
+| `GET  /api/auth/me`                | current user or 401                              |
+| `GET  /api/series`                 | list user's series                               |
+| `POST /api/series`                 | create series                                    |
+| `GET  /api/dashboard`              | KPIs, daily series, filtered episode rows (per-user) |
+| `POST /api/content`                | create episode (seriesName/episodeNumber/visibility/soundEffects/music…) + optional `scenes[]` |
+| `PATCH/DELETE /api/content/:id`    | update visibility/title/collection… · delete + cascade stats/scenes |
+| `GET/POST /api/content/:id/scenes` | list / create scenes                             |
+| `PATCH/DELETE /api/content/:id/scenes/:sceneId` | update / delete scene (repacks positions) |
+| `PUT  /api/content/:id/scenes/reorder` | reorder scenes `{orderedIds}`                 |
+| `POST /api/content/:id/render`     | (re)queue FFmpeg render (multi-scene concat)     |
 | `GET  /api/content/:id/video`      | stream MP4 with HTTP Range support               |
 | `GET  /api/content/:id/thumbnail`  | extracted poster frame                           |
-| `GET  /api/renders?ids=1,2`        | lightweight render-state polling                 |
+| `GET  /api/renders?ids=1,2`        | lightweight render-state polling (per-user)      |
 
 Interactive docs: http://localhost:8000/docs (OpenAPI).
 

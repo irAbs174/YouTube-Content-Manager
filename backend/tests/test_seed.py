@@ -67,7 +67,11 @@ def test_seeding_through_engine_does_not_leak_connections(seeded_session: Sessio
     db_path = seeded_session.get_bind().url.database
     probe = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
-        count = probe.execute("select count(*) from youtube_content").fetchone()[0]
+        # table was renamed youtube_main; keep legacy name support via alias check
+        try:
+            count = probe.execute("select count(*) from youtube_main").fetchone()[0]
+        except sqlite3.OperationalError:
+            count = probe.execute("select count(*) from youtube_content").fetchone()[0]
         assert count == 26
     finally:
         probe.close()

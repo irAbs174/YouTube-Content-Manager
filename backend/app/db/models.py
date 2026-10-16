@@ -17,7 +17,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, synonym
 
 from app.db.base import Base
 
@@ -99,6 +99,8 @@ class YoutubeMain(Base):
     collection_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("collections.id", ondelete="SET NULL"), nullable=True
     )
+    # Legacy string column kept for backward compat (old code writes collection name here)
+    collection: Mapped[str] = mapped_column(Text, nullable=False, default="")
     sound_effects: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     music: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     subtitles_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -106,6 +108,12 @@ class YoutubeMain(Base):
     duration_sec: Mapped[int] = mapped_column(Integer, nullable=False, default=45)
     # Legacy JSON kept during renderer cutover; scenes are canonical.
     script: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    # Legacy string columns for backward compat with existing frontend/tests
+    # during the Private/Public migration — still written so old API keeps working.
+    sound_music: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    effects: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    subtitles: Mapped[str] = mapped_column(Text, nullable=False, default="EN")
+    thumbnail: Mapped[str] = mapped_column(Text, nullable=False, default="")
     render_status: Mapped[str] = mapped_column(Text, nullable=False, default="none")
     render_progress: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     render_error: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -137,13 +145,23 @@ class YoutubeMain(Base):
         Index("youtube_main_visibility_idx", "visibility"),
     )
 
+    # ── legacy aliases for service-layer tests (episode ↔ episode_number, status ↔ visibility)
+    episode = synonym("episode_number")
+    status = synonym("visibility")
+
     @property
     def episode_display(self) -> str:
-        return f"{self.series.name} #{self.episode_number}"
+        # guard for seed rows where series not yet flushed
+        try:
+            return f"{self.series.name} #{self.episode_number}"
+        except Exception:
+            return f"Episode #{self.episode_number}"
 
     @property
     def collection_name(self) -> str:
-        return self.collection_row.name if self.collection_row is not None else ""
+        if self.collection_row is not None:
+            return self.collection_row.name
+        return self.collection or ""
 
 
 class EpisodeScene(Base):

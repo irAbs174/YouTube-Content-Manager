@@ -20,6 +20,16 @@ export interface OnScreenScript {
   audio: boolean;
 }
 
+export interface EpisodeScene {
+  id: number;
+  position: number;
+  durationSec: number;
+  command: string;
+  tip: string;
+  audio: boolean;
+  notes: string;
+}
+
 export interface ContentRow {
   id: number;
   episode: number;
@@ -42,6 +52,18 @@ export interface ContentRow {
   impressions: number;
   likes: number;
   subs: number;
+  // workbook-normalized new fields
+  visibility: "Private" | "Public";
+  seriesId: number;
+  seriesName: string;
+  episodeNumber: number;
+  episodeDisplay: string;
+  collectionId: number | null;
+  soundEffects: boolean;
+  music: boolean;
+  subtitlesCount: number;
+  thumbnailReady: boolean;
+  scenes: EpisodeScene[];
 }
 
 export interface DashboardData {
@@ -58,4 +80,10 @@ export interface RenderState {
   renderProgress: number;
   renderError: string | null;
   hasVideo: boolean;
+}
+
+export interface SeriesInfo {
+  id: number;
+  name: string;
+  episodeCount: number;
 }

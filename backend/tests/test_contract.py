@@ -47,7 +47,11 @@ def test_dashboard_contract(client: TestClient):
     for point in body["series"]:
         assert set(point) == SERIES_KEYS
     for row in body["rows"]:
-        assert set(row) == ROW_KEYS
+        # legacy keys must still be present; new keys are additive
+        assert set(row) >= ROW_KEYS
+        # also check new workbook keys present
+        for k in ("visibility", "seriesName", "episodeNumber", "soundEffects", "music", "subtitlesCount", "thumbnailReady"):
+            assert k in row
 
 
 def test_render_state_contract(client: TestClient):
@@ -76,7 +80,7 @@ def test_mutation_contract(client: TestClient):
     }
 
     patched = client.patch(
-        f"/api/content/{created['id']}", json={"status": "Published"}
+        f"/api/content/{created['id']}", json={"status": "Public"}
     ).json()
     assert patched == {"ok": True, "id": created["id"]}
 
@@ -84,7 +88,7 @@ def test_mutation_contract(client: TestClient):
 def test_dashboard_meta_endpoint_lists_domain_values(client: TestClient):
     """The constants endpoint keeps frontend dropdowns in sync."""
     meta = client.get("/api/meta").json()
-    assert meta["statuses"][0] == "Draft"
+    assert meta["statuses"][0] == "Private"
     assert meta["collections"][0]["name"]
     assert all("color" in c and "sounds" in c for c in meta["collections"])
 

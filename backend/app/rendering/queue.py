@@ -16,11 +16,12 @@ import asyncio
 import contextlib
 import logging
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import Settings
-from app.db.models import YoutubeContent
-from app.rendering.renderer import Renderer, RenderSpec
+from app.db.models import EpisodeScene, YoutubeContent
+from app.rendering.renderer import Renderer, RenderSpec, SceneSpec
 from app.rendering.storage import episode_dir, thumb_abs_path, video_rel_path
 
 logger = logging.getLogger(__name__)
@@ -103,26 +104,56 @@ class RenderQueue:
     async def _process(self, episode_id: int) -> None:
         with self._session() as session:
             row = session.get(YoutubeContent, episode_id)
-            if row is None or row.script is None:
-                # Episode was deleted, or has nothing to render.
-                if row is not None:
+            if row is None:
+                return
+            # need scenes or script
+            scenes = list(session.scalars(select(EpisodeScene).where(EpisodeScene.content_id == episode_id).order_by(EpisodeScene.position)).all())
+            has_script = row.script is not None and isinstance(row.script, dict) and str(row.script.get("command", "")).strip()
+            if not scenes and not has_script:
+                # synthesise minimal script fallback if title exists
+                if row.title:
+                    row.script = {"command": row.title, "tip": "", "audio": True}
+                    session.commit()
+                    has_script = True
+                else:
                     row.render_status = Failed
                     row.render_error = "Nothing to render (missing on-screen script)"
                     session.commit()
-                return
+                    return
 
             row.render_status = Running
             row.render_progress = 0
             session.commit()
-            spec = RenderSpec(
-                episode_id=episode_id,
-                duration_sec=row.duration_sec,
-                command=str(row.script.get("command", "")),
-                tip=str(row.script.get("tip", "")),
-                audio=bool(row.script.get("audio", True)),
-                out_path=episode_dir(self._settings, episode_id) / "video.mp4",
-                thumb_path=thumb_abs_path(self._settings, episode_id),
-            )
+
+            # build spec
+            if scenes:
+                scene_specs = [
+                    SceneSpec(duration_sec=s.duration_sec, command=s.command, tip=s.tip, audio=s.audio, notes=s.notes)
+                    for s in scenes
+                ]
+                total = sum(s.duration_sec for s in scene_specs) or row.duration_sec
+                # use first scene's command/tip as fallback for legacy renderers
+                spec = RenderSpec(
+                    episode_id=episode_id,
+                    duration_sec=total,
+                    command=scene_specs[0].command,
+                    tip=scene_specs[0].tip,
+                    audio=scene_specs[0].audio,
+                    out_path=episode_dir(self._settings, episode_id) / "video.mp4",
+                    thumb_path=thumb_abs_path(self._settings, episode_id),
+                    scenes=scene_specs,
+                )
+            else:
+                spec = RenderSpec(
+                    episode_id=episode_id,
+                    duration_sec=row.duration_sec,
+                    command=str(row.script.get("command", "")),
+                    tip=str(row.script.get("tip", "")),
+                    audio=bool(row.script.get("audio", True)),
+                    out_path=episode_dir(self._settings, episode_id) / "video.mp4",
+                    thumb_path=thumb_abs_path(self._settings, episode_id),
+                    scenes=[],
+                )
 
         loop = asyncio.get_running_loop()
         last_reported = 0.0
