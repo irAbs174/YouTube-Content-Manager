@@ -41,7 +41,7 @@ The app today is a single unauthenticated page: dense KPIs/charts + a master tab
 ```mermaid
 flowchart LR
   Browser --> Next["Next.js :3000"]
-  Next -->|"/api/* rewrite<br/>same-origin proxy"| API["FastAPI :8000"]
+  Next -->|"/api/* runtime proxy<br/>same-origin"| API["FastAPI :8000"]
   API --> Auth["users + sessions"]
   API --> Series["series"]
   API --> Main["youtube_main"]
@@ -218,7 +218,7 @@ Open registration, per-user isolation. No OAuth.
   - `POST /api/auth/logout` → 200 + clear cookie
   - `GET /api/auth/me` → 200 `{id,email}` or 401
 - `get_current_user` dep reads `request.cookies[SESSION_COOKIE]`, calls `user_from_token(session, raw)` (401 on missing/expired, deletes expired row). Applied to `/api/dashboard`, `/api/content*`, `/api/renders`, `/api/series`, `/api/content/:id/scenes*`. **`GET /api/health` and `GET /api/meta` stay public.**
-- CORS: `allow_credentials=True` with explicit `cors_origins` (rewrites stay same-origin in browser; needed for direct `httpx` tests).
+- CORS: `allow_credentials=True` with explicit `cors_origins` (the Next runtime proxy keeps browser calls same-origin; direct `httpx` tests use CORS settings).
 - Owner scoping: every list/get/patch/delete/render filters by `user_id`. Episode numbers unique per `(user_id, series_id, episode_number)` — surface as 409 with `{error}`.
 - Errors via `DomainError` → `{error}` JSON with 400/401/409; validation errors stay 400 (frontend expects `{error}` not 422 `detail`).
 
@@ -226,7 +226,7 @@ Open registration, per-user isolation. No OAuth.
 
 - Public routes: [`src/app/login/page.tsx`](../../src/app/login/page.tsx) + [`src/app/register/page.tsx`](../../src/app/register/page.tsx) — email + password only, simple card, redirect to `/` on success, show `{error}` on failure.
 - Authenticated shell: [`src/app/(studio)/layout.tsx`](../../src/app/(studio)/layout.tsx) — reads `GET /api/auth/me` via SSR; unauthenticated → `redirect("/login")`. Shell chrome: `StudioNav` (Home | Lab | Emulator | Library), theme toggle, user email + Logout button (`POST /api/auth/logout`).
-- SSR fetches ([`src/lib/server-api.ts`](../../src/lib/server-api.ts)) forward `headers().get("cookie")` → `Cookie` upstream header; client fetches use `credentials:"include"`. Never hardcode `127.0.0.1` in browser fetch — use relative `/api/*` (Next rewrites to `API_ORIGIN_INTERNAL`).
+- SSR fetches ([`src/lib/server-api.ts`](../../src/lib/server-api.ts)) forward `headers().get("cookie")` → `Cookie` upstream header; client fetches use `credentials:"include"`. Never hardcode `127.0.0.1` in browser fetch — use relative `/api/*` (the runtime proxy reads `API_ORIGIN_INTERNAL` at request time).
 - Guard: `src/app/page.tsx` and all `(studio)/*` pages are server components that check auth before rendering.
 
 Tests: register → 201, duplicate email → 400/409, wrong password → 401, `/api/auth/me` → 401 when anonymous, 200 when authed, protected routes → 401, **user A cannot read/update/delete/render user B's episode**, expired session → 401 and row deleted.
