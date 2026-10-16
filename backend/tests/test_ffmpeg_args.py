@@ -6,12 +6,14 @@ from pathlib import Path
 
 from app.core.constants import VIDEO_FPS, VIDEO_HEIGHT, VIDEO_WIDTH
 from app.rendering.ffmpeg import (
+    FFmpegStatus,
     build_render_args,
     build_thumbnail_args,
     find_font,
     probe_availability,
     write_text_cards,
 )
+from app.rendering.renderer import FfmpegRenderer
 
 
 def _args(**overrides) -> list[str]:
@@ -84,9 +86,25 @@ def test_write_text_cards(tmp_path: Path):
 
 def test_probe_availability_returns_status():
     status = probe_availability()
-    # This sandbox has no FFmpeg, but the probe must never raise either way.
+    # The probe must return a complete status on any host configuration.
     assert status.available is False or status.available is True
     if not status.available:
         assert status.error
     else:
         assert find_font() is not None
+
+
+def test_renderer_rechecks_ffmpeg_availability(settings, monkeypatch):
+    statuses = iter(
+        [
+            FFmpegStatus(available=False, drawtext=False, error="not found"),
+            FFmpegStatus(available=True, drawtext=True),
+        ]
+    )
+    monkeypatch.setattr(
+        "app.rendering.renderer.ffmpeg.probe_availability", lambda: next(statuses)
+    )
+    renderer = FfmpegRenderer(settings)
+
+    assert renderer.is_available().available is False
+    assert renderer.is_available().available is True

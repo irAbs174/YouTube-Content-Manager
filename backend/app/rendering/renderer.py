@@ -46,12 +46,9 @@ class FfmpegRenderer:
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
-        self._status: ffmpeg.FFmpegStatus | None = None
 
     def is_available(self) -> ffmpeg.FFmpegStatus:
-        if self._status is None:
-            self._status = ffmpeg.probe_availability()
-        return self._status
+        return ffmpeg.probe_availability()
 
     def render(self, spec: RenderSpec, on_progress: ProgressFn) -> None:
         status = self.is_available()
