@@ -1,22 +1,17 @@
-export const STATUSES = [
-  "Draft",
-  "Scripting",
-  "Recording",
-  "Editing",
-  "Scheduled",
-  "Published",
-] as const;
+export const VISIBILITIES = ["Private", "Public"] as const;
+export type Visibility = (typeof VISIBILITIES)[number];
 
-export type Status = (typeof STATUSES)[number];
+// keep legacy STATUSES alias for meta compat; backend also aliases
+export const STATUSES = VISIBILITIES as unknown as readonly string[];
+export type Status = Visibility;
 
 export const STATUS_COLORS: Record<string, string> = {
-  Draft: "#94a3b8",
-  Scripting: "#f59e0b",
-  Recording: "#06b6d4",
-  Editing: "#a855f7",
-  Scheduled: "#3b82f6",
-  Published: "#10b981",
+  Private: "#94a3b8",
+  Public: "#10b981",
 };
+
+// alias for plan compatibility
+export const VISIBILITY_COLORS = STATUS_COLORS;
 
 interface CollectionOption {
   name: string;

@@ -11,7 +11,7 @@ from tests.conftest import FakeRenderer, make_client, wait_for_render
 VALID = {
     "title": "netcat listener on 9999",
     "date": date.today().isoformat(),
-    "status": "Draft",
+    "status": "Private",
     "collection": "Network Hacking",
     "soundMusic": "Dark Modem",
     "effects": "Neon glow",
@@ -118,13 +118,13 @@ def test_create_rejects_far_future_date(client: TestClient):
 def test_patch_status_and_title(client: TestClient):
     created = client.post("/api/content", json=VALID).json()
 
-    patched = client.patch(f"/api/content/{created['id']}", json={"status": "Published"})
+    patched = client.patch(f"/api/content/{created['id']}", json={"status": "Public"})
     assert patched.status_code == 200
     assert patched.json() == {"ok": True, "id": created["id"]}
 
     dashboard = client.get("/api/dashboard").json()
     row = next(r for r in dashboard["rows"] if r["id"] == created["id"])
-    assert row["status"] == "Published"
+    assert row["status"] == "Public"
 
     renamed = client.patch(
         f"/api/content/{created['id']}", json={"title": "renamed episode"
@@ -144,7 +144,7 @@ def test_patch_rejects_unknown_status(client: TestClient):
 
 
 def test_patch_missing_episode_is_404(client: TestClient):
-    assert client.patch("/api/content/99999", json={"status": "Draft"}).status_code == 404
+    assert client.patch("/api/content/99999", json={"status": "Private"}).status_code == 404
 
 
 def test_delete_removes_episode_and_stats(client: TestClient):

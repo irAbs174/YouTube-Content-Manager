@@ -25,7 +25,7 @@ def _payload(**overrides) -> EpisodeCreate:
     base = dict(
         title="service layer episode",
         date=TODAY.isoformat(),
-        status="Draft",
+        status="Private",
         collection="Linux Basics",
         soundMusic="",
         effects="",
@@ -65,9 +65,9 @@ def test_create_rejects_render_without_command(seeded_session: Session):
 def test_update_title_and_status(seeded_session: Session):
     row = create_episode(seeded_session, _payload())
     updated = update_episode(
-        seeded_session, row.id, EpisodePatch(status="Published", title="new title")
+        seeded_session, row.id, EpisodePatch(status="Public", title="new title")
     )
-    assert updated.status == "Published"
+    assert updated.status == "Public"
     assert updated.title == "new title"
 
 
@@ -79,7 +79,7 @@ def test_update_no_fields_is_noop(seeded_session: Session):
 
 def test_update_missing_raises_404(seeded_session: Session):
     with pytest.raises(NotFoundError):
-        update_episode(seeded_session, 999_999, EpisodePatch(status="Draft"))
+        update_episode(seeded_session, 999_999, EpisodePatch(status="Private"))
 
 
 def test_delete_cascades_daily_stats(seeded_session: Session):

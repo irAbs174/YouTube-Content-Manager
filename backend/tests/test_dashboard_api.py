@@ -49,9 +49,9 @@ def test_collection_filter(client: TestClient):
 
 
 def test_status_filter(client: TestClient):
-    body = client.get("/api/dashboard", params={"status": "Published"}).json()
+    body = client.get("/api/dashboard", params={"status": "Public"}).json()
     assert body["rows"]
-    assert {row["status"] for row in body["rows"]} == {"Published"}
+    assert {row["status"] for row in body["rows"]} == {"Public"}
 
 
 def test_date_window_filtering(client: TestClient):

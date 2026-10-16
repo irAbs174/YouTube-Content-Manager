@@ -20,9 +20,14 @@ from app.core.constants import (
     DEFAULT_RANGE_DAYS,
     MAX_RANGE_DAYS,
     STATUSES,
+    VISIBILITIES,
 )
 from app.core.errors import ValidationError
-from app.db.models import ContentDailyStats, YoutubeContent
+from app.db.models import ContentDailyStats, User, YoutubeMain
+
+# Back-compat alias
+YoutubeContent = YoutubeMain
+
 from app.schemas.dashboard import (
     DashboardData,
     DashboardRow,
@@ -34,6 +39,14 @@ from app.schemas.dashboard import (
 
 _WATCH_HOURS_DIVISOR = 3600.0
 
+LEGACY_TO_VISIBILITY = {
+    "Draft": "Private",
+    "Scripting": "Private",
+    "Recording": "Private",
+    "Editing": "Private",
+    "Scheduled": "Private",
+    "Published": "Public",
+}
 
 # ── filter parsing ───────────────────────────────────────────────────────────
 def parse_filters(
@@ -59,15 +72,31 @@ def parse_filters(
     collection = (collection or "All").strip() or "All"
     if collection != "All" and collection not in COLLECTION_NAMES:
         raise ValidationError(f"Unknown collection: {collection}")
-    status = (status or "All").strip() or "All"
-    if status != "All" and status not in STATUSES:
-        raise ValidationError(f"Unknown status: {status}")
+    # status may be legacy or visibility; normalize for storage but keep original for filter?
+    # We store Filters.status as normalized visibility when applicable, but allow "All"
+    status_raw = (status or "All").strip() or "All"
+    if status_raw != "All":
+        # check visibilities first
+        if status_raw in VISIBILITIES:
+            pass
+        elif status_raw in STATUSES:
+            # STATUSES now equals VISIBILITIES, so this is redundant but keep for compat
+            pass
+        elif status_raw in LEGACY_TO_VISIBILITY:
+            # map legacy to visibility for filtering
+            status_raw = LEGACY_TO_VISIBILITY[status_raw]
+        else:
+            raise ValidationError(f"Unknown status: {status}")
+        # also ensure after mapping it's in visibilities
+        if status_raw not in VISIBILITIES:
+            # if legacy mapped to Private but not in visibilities? It is.
+            raise ValidationError(f"Unknown status: {status}")
 
     return Filters(
         from_date=from_date.isoformat(),
         to_date=to_date.isoformat(),
         collection=collection,
-        status=status,
+        status=status_raw,
     )
 
 
@@ -115,15 +144,26 @@ def _per_episode_window(
 
 
 def _daily_series(
-    session: Session, day_from: date, day_to: date
+    session: Session, day_from: date, day_to: date, user: User | None = None
 ) -> tuple[list[SeriesPoint], int]:
     """One point per day in the window (zero-filled, no gaps) + total impressions."""
-    rows = session.execute(
-        select(ContentDailyStats.day, *_AGG_COLUMNS)
-        .where(and_(ContentDailyStats.day >= day_from, ContentDailyStats.day <= day_to))
-        .group_by(ContentDailyStats.day)
-        .order_by(ContentDailyStats.day)
-    ).all()
+    # If user scoped, filter stats to that user's episodes
+    if user is not None:
+        # join via ContentDailyStats -> YoutubeMain to filter by user
+        rows = session.execute(
+            select(ContentDailyStats.day, *_AGG_COLUMNS)
+            .join(YoutubeMain, YoutubeMain.id == ContentDailyStats.content_id)
+            .where(and_(ContentDailyStats.day >= day_from, ContentDailyStats.day <= day_to, YoutubeMain.user_id == user.id))
+            .group_by(ContentDailyStats.day)
+            .order_by(ContentDailyStats.day)
+        ).all()
+    else:
+        rows = session.execute(
+            select(ContentDailyStats.day, *_AGG_COLUMNS)
+            .where(and_(ContentDailyStats.day >= day_from, ContentDailyStats.day <= day_to))
+            .group_by(ContentDailyStats.day)
+            .order_by(ContentDailyStats.day)
+        ).all()
 
     by_day = {row[0]: row for row in rows}
     points: list[SeriesPoint] = []
@@ -161,7 +201,7 @@ def _window_totals(points: list[SeriesPoint], impressions: int) -> dict[str, flo
 
 
 # ── main entry point ─────────────────────────────────────────────────────────
-def get_dashboard_data(session: Session, filters: Filters) -> DashboardData:
+def get_dashboard_data(session: Session, filters: Filters, user: User | None = None) -> DashboardData:
     from_date = date.fromisoformat(filters.from_date)
     to_date = date.fromisoformat(filters.to_date)
     days = (to_date - from_date).days + 1
@@ -170,18 +210,21 @@ def get_dashboard_data(session: Session, filters: Filters) -> DashboardData:
 
     # 1) Episodes inside the window (collection/status filters applied).
     episode_conditions = [
-        YoutubeContent.date >= from_date,
-        YoutubeContent.date <= to_date,
+        YoutubeMain.date >= from_date,
+        YoutubeMain.date <= to_date,
     ]
+    if user is not None:
+        episode_conditions.append(YoutubeMain.user_id == user.id)
     if filters.collection != "All":
-        episode_conditions.append(YoutubeContent.collection == filters.collection)
+        episode_conditions.append(YoutubeMain.collection == filters.collection)
     if filters.status != "All":
-        episode_conditions.append(YoutubeContent.status == filters.status)
+        # filters.status is already normalized to visibility
+        episode_conditions.append(YoutubeMain.visibility == filters.status)
     episodes = list(
         session.scalars(
-            select(YoutubeContent)
+            select(YoutubeMain)
             .where(and_(*episode_conditions))
-            .order_by(YoutubeContent.episode)
+            .order_by(YoutubeMain.episode_number)
         ).all()
     )
 
@@ -197,8 +240,8 @@ def get_dashboard_data(session: Session, filters: Filters) -> DashboardData:
     ]
 
     # 3) Daily series + KPI pairs (current window vs preceding window).
-    series, impressions_now = _daily_series(session, from_date, to_date)
-    prev_series, impressions_prev = _daily_series(session, prev_from, prev_to)
+    series, impressions_now = _daily_series(session, from_date, to_date, user)
+    prev_series, impressions_prev = _daily_series(session, prev_from, prev_to, user)
     kpis = _kpi_pairs(series, impressions_now, prev_series, impressions_prev)
 
     return DashboardData(
@@ -224,19 +267,28 @@ def _kpi_pairs(
 
 
 def _to_dashboard_row(
-    episode: YoutubeContent,
+    episode: YoutubeMain,
     views: int,
     impressions: int,
     likes: int,
     subs: int,
 ) -> DashboardRow:
+    # safely get series name, fallback
+    try:
+        series_name = episode.series.name if episode.series else "General"
+        series_id = episode.series_id
+    except Exception:
+        series_name = "General"
+        series_id = episode.series_id
+    # collection name
+    collection_name = episode.collection_name if hasattr(episode, "collection_name") else episode.collection
     return DashboardRow(
         id=episode.id,
-        episode=episode.episode,
-        date=episode.date.isoformat(),
+        episode=episode.episode_number,
+        date=episode.date.isoformat() if episode.date else "",
         title=episode.title,
-        status=episode.status,
-        collection=episode.collection,
+        status=episode.visibility,
+        collection=collection_name,
         sound_music=episode.sound_music,
         effects=episode.effects,
         subtitles=episode.subtitles,
@@ -247,6 +299,18 @@ def _to_dashboard_row(
         render_progress=episode.render_progress,
         render_error=episode.render_error,
         video_path=episode.video_path,
+        # new fields
+        visibility=episode.visibility,
+        series_id=series_id,
+        series_name=series_name,
+        episode_number=episode.episode_number,
+        episode_display=episode.episode_display if hasattr(episode, "episode_display") else f"{series_name} #{episode.episode_number}",
+        collection_id=episode.collection_id,
+        sound_effects=episode.sound_effects,
+        music=episode.music,
+        subtitles_count=episode.subtitles_count,
+        thumbnail_ready=episode.thumbnail_ready,
+        scenes=[],  # scenes are not aggregated here for dashboard; Library fetches via separate endpoint
         has_video=episode.video_path is not None,
         views=views,
         impressions=impressions,

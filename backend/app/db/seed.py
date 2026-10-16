@@ -17,10 +17,14 @@ from sqlalchemy.orm import Session
 from app.core.constants import (
     COLLECTIONS,
     EFFECT_OPTIONS,
-    STATUSES,
     SUBTITLE_OPTIONS,
+    VISIBILITIES,
 )
-from app.db.models import ContentDailyStats, YoutubeContent
+from app.core.config import Settings, get_settings
+from app.db.models import Collection, ContentDailyStats, Series, User, YoutubeMain
+
+# Back-compat alias used elsewhere.
+YoutubeContent = YoutubeMain
 
 _SEED = 42
 _EPISODES = 26
@@ -79,8 +83,59 @@ _FLAVORS = (
 
 def needs_seed(session: Session) -> bool:
     """True when the content table is empty."""
-    count = session.scalar(select(func.count()).select_from(YoutubeContent))
+    count = session.scalar(select(func.count()).select_from(YoutubeMain))
     return (count or 0) == 0
+
+
+def _ensure_collections(session: Session) -> dict[str, Collection]:
+    """Ensure COLLECTIONS rows exist; return name→row map."""
+    existing = {c.name: c for c in session.scalars(select(Collection)).all()}
+    for coll in COLLECTIONS:
+        name = str(coll["name"])  # type: ignore[arg-type]
+        color = str(coll["color"])  # type: ignore[arg-type]
+        if name not in existing:
+            row = Collection(name=name, color=color)
+            session.add(row)
+            session.flush()
+            existing[name] = row
+        else:
+            # keep color in sync in case constants changed
+            if existing[name].color != color:
+                existing[name].color = color
+    session.flush()
+    return existing
+
+
+def _ensure_demo_user(session: Session) -> User:
+    settings = get_settings()
+    # Use demo_email from settings but fallback to hardcoded if not set
+    try:
+        demo_email = settings.demo_email  # type: ignore[attr-defined]
+        demo_password = settings.demo_password  # type: ignore[attr-defined]
+    except Exception:
+        demo_email = "demo@ytcm.test"
+        demo_password = "demo-password-1"
+    existing = session.scalar(select(User).where(User.email == demo_email))
+    if existing is not None:
+        return existing
+    # hash password lazily to avoid import cost at module load
+    from app.services.auth import hash_password
+
+    user = User(email=demo_email, password_hash=hash_password(demo_password))
+    session.add(user)
+    session.flush()
+    return user
+
+
+def _ensure_seed_series(session: Session, user: User) -> Series:
+    name = "Seed Series"
+    row = session.scalar(select(Series).where(Series.user_id == user.id, Series.name == name))
+    if row is not None:
+        return row
+    row = Series(user_id=user.id, name=name)
+    session.add(row)
+    session.flush()
+    return row
 
 
 def seed(session: Session, *, today: date | None = None) -> int:
@@ -93,37 +148,61 @@ def seed(session: Session, *, today: date | None = None) -> int:
     start = today - timedelta(days=_HISTORY_DAYS - 1)
     created = 0
 
+    collections_by_name = _ensure_collections(session)
+    demo_user = _ensure_demo_user(session)
+    seed_series = _ensure_seed_series(session, demo_user)
+
     for index in range(_EPISODES):
         collection = COLLECTIONS[index % len(COLLECTIONS)]
         assert isinstance(collection["name"], str)
         name = str(collection["name"])
+        coll_row = collections_by_name[name]
         topics = _TOPIC_BY_COLLECTION[name]
         topic = topics[index % len(topics)]
         flavor = _FLAVORS[index % len(_FLAVORS)]
         episode_no = index + 1
         published_day = start + timedelta(days=int(_HISTORY_DAYS * (index / _EPISODES)))
-        # Older episodes are Published; the newest few sit in the pipeline.
+        # Visibility: Public for older, Private for recent — maps legacy Published→Public
         age = (today - published_day).days
         if age > 21:
-            status = "Published"
-        elif age > 12:
-            status = STATUSES[rng.randrange(4, 6)]
+            visibility = "Public"
         else:
-            status = STATUSES[rng.randrange(0, 4)]
+            # deterministic but varied Private for recent pipeline
+            visibility = rng.choice(list(VISIBILITIES))
 
         duration = rng.randrange(30, 76, 5)
-        row = YoutubeContent(
-            episode=episode_no,
+        sound_choice = str(rng.choice(collection["sounds"]))  # type: ignore[arg-type]
+        effects = " · ".join(rng.sample(list(EFFECT_OPTIONS), rng.randrange(1, 3)))
+        subtitles_choice = str(rng.choice(SUBTITLE_OPTIONS[1:]))
+        thumbnail_path = f"thumbs/{name.lower().replace(' ', '-')}/ep-{episode_no}.jpg"
+        # new boolean fields derived
+        sound_effects = rng.choice([True, False])
+        music = rng.choice([True, False])
+        subtitles_count = 0 if subtitles_choice == "None" else 1
+        thumbnail_ready = True  # seed always has thumbnail
+
+        row = YoutubeMain(
+            user_id=demo_user.id,
+            series_id=seed_series.id,
+            episode_number=episode_no,
             date=published_day,
             title=f"{topic} · {flavor}",
-            status=status,
-            collection=name,
-            sound_music=str(rng.choice(collection["sounds"])),  # type: ignore[arg-type]
-            effects=" · ".join(rng.sample(list(EFFECT_OPTIONS), rng.randrange(1, 3))),
-            subtitles=str(rng.choice(SUBTITLE_OPTIONS[1:])),
-            thumbnail=f"thumbs/{name.lower().replace(' ', '-')}/ep-{episode_no}.jpg",
+            visibility=visibility,
+            collection_id=coll_row.id,
+            collection=name,  # legacy string for backward compat filters
+            sound_effects=sound_effects,
+            music=music,
+            subtitles_count=subtitles_count,
+            thumbnail_ready=thumbnail_ready,
+            # legacy columns kept so old API/tests still see values
+            sound_music=sound_choice,
+            effects=effects,
+            subtitles=subtitles_choice,
+            thumbnail=thumbnail_path,
             duration_sec=duration,
         )
+        # also ensure synonym fields consistent (episode/status aliases)
+        # via synonyms episode↔episode_number and status↔visibility they are same
         session.add(row)
         session.flush()  # need row.id for the stats rows
 
@@ -137,7 +216,7 @@ def seed(session: Session, *, today: date | None = None) -> int:
 def _seed_stats_for_episode(
     rng: Random,
     session: Session,
-    row: YoutubeContent,
+    row: YoutubeMain,
     published_day: date,
     today: date,
 ) -> None:
